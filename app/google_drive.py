@@ -102,7 +102,13 @@ def _load_user_credentials() -> UserCredentials:
     return credentials
 
 
-def download_folder_from_drive(folder_id: str, output_dir: str) -> list[str]:
+def download_folder_from_drive(
+    folder_id: str,
+    output_dir: str,
+    *,
+    max_files: int = 25,
+    max_file_bytes: int = 10 * 1024 * 1024,
+) -> list[str]:
     service = get_drive_service()
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
@@ -127,8 +133,19 @@ def download_folder_from_drive(folder_id: str, output_dir: str) -> list[str]:
             "Google Drive could not list the folder. Please try again.", status_code=502
         ) from exc
 
+    if len(pdf_items) > max_files:
+        raise DriveFolderError(
+            f"The folder contains more than the {max_files} PDF limit. Use a smaller folder.",
+            status_code=413,
+        )
+
     downloaded_files = []
     for item in pdf_items:
+        if int(item.get("size", 0)) > max_file_bytes:
+            raise DriveFolderError(
+                f"{item['name']} exceeds the {max_file_bytes // (1024 * 1024)} MB file limit.",
+                status_code=413,
+            )
         file_path = destination / Path(item["name"]).name
         request = service.files().get_media(fileId=item["id"])
         try:
@@ -164,7 +181,7 @@ def _find_pdf_items(service, root_folder_id: str) -> list[dict[str, str]]:
                 service.files()
                 .list(
                     q=f"'{folder_id}' in parents and trashed = false",
-                    fields="nextPageToken, files(id, name, mimeType)",
+                    fields="nextPageToken, files(id, name, mimeType, size)",
                     includeItemsFromAllDrives=True,
                     supportsAllDrives=True,
                     pageToken=page_token,

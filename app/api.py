@@ -17,6 +17,7 @@ from app.recruiter import AgentConfigurationError, MatchEvaluation, RecruiterAge
 app = FastAPI(title="Recruiting Assistant API", version="2.0.0")
 agent = RecruiterAgent()
 max_resume_bytes = int(os.getenv("MAX_RESUME_MB", "10")) * 1024 * 1024
+max_drive_files = int(os.getenv("MAX_DRIVE_FILES", "25"))
 
 
 class ShortlistRequest(BaseModel):
@@ -69,7 +70,12 @@ def shortlist_resumes(request: ShortlistRequest):
     try:
         agent.validate_configuration()
         with TemporaryDirectory(prefix="resumes-") as temporary_directory:
-            files = download_folder_from_drive(request.drive_folder_id, temporary_directory)
+            files = download_folder_from_drive(
+                request.drive_folder_id,
+                temporary_directory,
+                max_files=max_drive_files,
+                max_file_bytes=max_resume_bytes,
+            )
             results = agent.shortlist_resumes(request.jd_text, files)
         return {"total_evaluated": len(results), "shortlist": results}
     except (AgentConfigurationError, DriveConfigurationError) as exc:

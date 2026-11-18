@@ -1,4 +1,8 @@
-secrets/credentials.json
-secrets/token.json
-secrets/.env
-.venv
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+secrets/
+.streamlit/secrets.toml

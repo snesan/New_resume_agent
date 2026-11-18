@@ -39,7 +39,12 @@ class RecruiterAgent:
 
     def match_single_resume(self, jd_text: str, resume_path: str | Path) -> dict:
         self.validate_configuration()
+        max_input_chars = int(os.getenv("MAX_INPUT_CHARS", "20000"))
+        if len(jd_text) > max_input_chars:
+            raise ValueError(f"Job description exceeds the {max_input_chars:,} character limit.")
         resume_text = self.extract_text_from_pdf(resume_path)
+        if len(resume_text) > max_input_chars:
+            resume_text = resume_text[:max_input_chars]
         response = self._get_llm().invoke(
             [
                 (
@@ -104,4 +109,3 @@ Return exactly these JSON fields:
                 model_kwargs={"response_format": {"type": "json_object"}},
             )
         return self._llm
-
